@@ -51,7 +51,12 @@ class HifiBot(SingleServerIRCBot):
       self.say_public(text)
 
   def say_whitelist(self):
-    self.say_public("Available sounds are: '" + "', '".join(self.whitelist) + "'")
+    chunks=[self.whitelist[x:x+25] for x in xrange(0, len(self.whitelist), 25)]
+    self.say_public("Available sounds are: '" + "', '".join(chunks[0]) + "'")
+
+    if len(chunks) > 1:
+        for x in chunks[1:len(chunks)]:
+            self.say_public("(cont'd): '" + "', '".join(x) + "'")
 
   def init_whitelist(self):
       self.whitelist = []
