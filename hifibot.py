@@ -14,6 +14,7 @@ class HifiBot(SingleServerIRCBot):
   def __init__(self, channel, nickname, server, port):
     SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
     self.command_count = 0
+    self.queue_path = '/path/to/queue.csv'
     self.channel = channel
     self.nickname = nickname
 
@@ -70,11 +71,14 @@ class HifiBot(SingleServerIRCBot):
       self.say_whitelist()
 
   def clear_queue(self):
-    fh = open('/path/to/hifi/php/queue.csv', 'w')
+    fh = open(self.queue_path, 'w')
     writer = csv.writer(fh, delimiter = ',')
     writer.writerow(['file', 'timestamp'])
     fh.close()
     self.command_count = 0
+
+  def fuzzy_match(self, search):
+      return filter(lambda cmd: cmd[:len(search)] == search, self.whitelist)
 
   def do_command(self, e, cmd, from_private):
     if '.reload-whitelist' == cmd:
@@ -87,20 +91,36 @@ class HifiBot(SingleServerIRCBot):
 
     if '!' == cmd[0]:
         cmd = cmd[1:]
-        if cmd in self.whitelist:
-            if (self.command_count >= 32):
-                self.clear_queue()
-            self.command_count += 1
+        if (len(cmd) == 0):
+            return
 
-            fh = None
-            try:
-                fh = open('/path/to/hifi/php/queue.csv', 'a')
-            except IOError:
+        matches = self.fuzzy_match(cmd)
+
+        actual_cmd = ''
+        if (len(matches) == 0):
+            return
+        elif (len(matches) > 1):
+            if (cmd not in matches):
+                self.say_public("No matches for '" + cmd +  "', possible matches: '" + "', '".join(matches) + "'")
                 return
+            else:
+                actual_cmd = cmd
+        else:
+            actual_cmd = matches[0]
 
-            writer = csv.writer(fh, delimiter = ',')
-            writer.writerow([cmd, round(time.time() * 1000)])
-            fh.close()
+        if (self.command_count >= 32):
+            self.clear_queue()
+        self.command_count += 1
+
+        fh = None
+        try:
+            fh = open(self.queue_path, 'a')
+        except IOError:
+            return
+
+        writer = csv.writer(fh, delimiter = ',')
+        writer.writerow([actual_cmd, round(time.time() * 1000)])
+        fh.close()
 
 if __name__ == "__main__":
   try:
